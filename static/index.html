@@ -344,6 +344,16 @@
 
     const MONTREAL = [45.5017, -73.5673];
     let gpxBlob = null;
+    let cachedUserLat = null, cachedUserLng = null;
+
+    // Request location on load so the permission dialog appears immediately
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { cachedUserLat = pos.coords.latitude; cachedUserLng = pos.coords.longitude; },
+        () => {},
+        { timeout: 10000, maximumAge: 60000 }
+      );
+    }
 
     // map state
     let mapInstance = null;
@@ -635,14 +645,16 @@
       gpxBlob = null;
 
       const city = document.getElementById('cityInput').value.trim();
-      let startLat = null, startLng = null;
-      try {
-        const pos = await new Promise((ok, fail) =>
-          navigator.geolocation.getCurrentPosition(ok, fail, { timeout: 5000, maximumAge: 60000 })
-        );
-        startLat = pos.coords.latitude;
-        startLng = pos.coords.longitude;
-      } catch {}
+      let startLat = cachedUserLat, startLng = cachedUserLng;
+      if (startLat === null && navigator.geolocation) {
+        try {
+          const pos = await new Promise((ok, fail) =>
+            navigator.geolocation.getCurrentPosition(ok, fail, { timeout: 5000, maximumAge: 60000 })
+          );
+          startLat = pos.coords.latitude;
+          startLng = pos.coords.longitude;
+        } catch {}
+      }
 
       setStatus('routeStatus', 'Optimizing route...', true);
 
