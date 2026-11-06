@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Alleycat Router</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d0d;
+      color: #ededed;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      gap: 24px;
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #ff6b35;
+    }
+
+    .section { width: 100%; max-width: 480px; }
+
+    /* ---- Photo button ---- */
+    #photoBtn {
+      width: 100%;
+      height: 110px;
+      background: #161616;
+      border: 2px dashed #ff6b35;
+      border-radius: 14px;
+      color: #ff6b35;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s;
+    }
+    #photoBtn:active { background: #221505; }
+    #photoBtn svg { width: 32px; height: 32px; }
+
+    /* ---- Status / spinner ---- */
+    .status {
+      text-align: center;
+      color: #666;
+      font-size: 0.85rem;
+      padding: 10px 0 2px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid #333;
+      border-top-color: #ff6b35;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Error ---- */
+    .error {
+      background: #200808;
+      border: 1px solid #c0392b;
+      border-radius: 10px;
+      color: #ff9f9f;
+      padding: 12px 14px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+
+    /* ---- Section label ---- */
+    .label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #555;
+      margin-bottom: 8px;
+    }
+
+    /* ---- Checkpoint rows ---- */
+    .address-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+
+    .addr-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .addr-row input {
+      flex: 1;
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 9px;
+      color: #ededed;
+      font-size: 0.9rem;
+      padding: 11px 13px;
+      outline: none;
+      min-width: 0;
+    }
+    .addr-row input:focus { border-color: #ff6b35; }
+
+    .icon-btn {
+      width: 36px; height: 36px; flex-shrink: 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .del-btn { background: #200808; color: #c0392b; font-size: 1.3rem; }
+    .pin-btn { background: #0a1a2a; color: #60a5fa; }
+    .pin-btn.located { color: #4ade80; }
+    .pin-btn.failed  { color: #f87171; }
+
+    .coords-line {
+      font-size: 0.72rem;
+      padding: 2px 4px 0 2px;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+    }
+    .coords-line.loading  { color: #555; }
+    .coords-line.found    { color: #4ade80; }
+    .coords-line.not-found{ color: #f87171; }
+
+    .add-btn {
+      width: 100%;
+      padding: 10px;
+      background: transparent;
+      border: 1px dashed #2a2a2a;
+      border-radius: 9px;
+      color: #555;
+      font-size: 0.85rem;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .add-btn:active { background: #161616; }
+
+    /* ---- Round trip ---- */
+    .rt-list { display: flex; flex-direction: column; gap: 10px; }
+    .rt-row  { display: flex; flex-direction: column; gap: 4px; }
+    .rt-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.65rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .rt-badge.pickup  { color: #4ade80; }
+    .rt-badge.dropoff { color: #facc15; }
+    .rt-badge.return  { color: #60a5fa; }
+    .rt-input-row { display: flex; align-items: center; gap: 6px; }
+    .rt-input-row input {
+      flex: 1;
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 9px;
+      color: #ededed;
+      font-size: 0.9rem;
+      padding: 11px 13px;
+      outline: none;
+    }
+    .rt-input-row input:focus { border-color: #ff6b35; }
+
+    /* ---- City + buttons ---- */
+    #cityInput {
+      width: 100%;
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 9px;
+      color: #ededed;
+      font-size: 1rem;
+      padding: 12px 14px;
+      outline: none;
+      margin-bottom: 20px;
+    }
+    #cityInput:focus { border-color: #ff6b35; }
+
+    .btn {
+      width: 100%;
+      padding: 17px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.1s;
+    }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-primary { background: #ff6b35; color: #0d0d0d; }
+    .btn-primary:active:not(:disabled) { opacity: 0.75; }
+    .btn-success { background: #22c55e; color: #0d0d0d; }
+    .btn-success:active:not(:disabled) { opacity: 0.75; }
+
+    .note {
+      text-align: center; color: #555; font-size: 0.8rem;
+      margin-top: 10px; line-height: 1.5;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ---- Map modal ---- */
+    #mapModal {
+      position: fixed; inset: 0; z-index: 1000;
+      background: #0d0d0d;
+      display: flex; flex-direction: column;
+    }
+    #mapContainer { flex: 1; }
+    .map-bar {
+      background: #161616;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid #2a2a2a;
+    }
+    #mapCoords {
+      flex: 1;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      color: #888;
+    }
+    .map-bar button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #mapConfirm { background: #ff6b35; color: #0d0d0d; }
+    #mapCancel  { background: #2a2a2a; color: #ededed; }
+  </style>
+</head>
+<body>
+
+  <h1>Alleycat Router</h1>
+
+  <!-- Step 1 -->
+  <div class="section">
+    <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
+    <button id="photoBtn" onclick="document.getElementById('photoInput').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      Scan Manifest
+    </button>
+    <div class="status" id="scanStatus"></div>
+    <div class="error hidden" id="scanError"></div>
+  </div>
+
+  <!-- Step 2a: Checkpoints -->
+  <div class="section hidden" id="addressSection">
+    <div class="label">Checkpoints</div>
+    <div class="address-list" id="addressList"></div>
+    <button class="add-btn" onclick="addCheckpointRow('')">+ Add checkpoint</button>
+  </div>
+
+  <!-- Step 2b: Round trip -->
+  <div class="section hidden" id="roundTripSection">
+    <div class="label">Round Trip</div>
+    <div class="rt-list">
+      <div class="rt-row">
+        <div class="rt-badge pickup">&#x2191; Pickup</div>
+        <div class="rt-input-row">
+          <input type="text" id="rtPickup" placeholder="Pickup address">
+          <button class="icon-btn pin-btn" id="rtPickupPin" onclick="openMapForRt('pickup')">&#x1F4CD;</button>
+        </div>
+      </div>
+      <div class="rt-row">
+        <div class="rt-badge dropoff">&#x2193; Dropoff</div>
+        <div class="rt-input-row">
+          <input type="text" id="rtDropoff" placeholder="Dropoff address">
+          <button class="icon-btn pin-btn" id="rtDropoffPin" onclick="openMapForRt('dropoff')">&#x1F4CD;</button>
+        </div>
+      </div>
+      <div class="rt-row">
+        <div class="rt-badge return">&#x21BA; Return</div>
+        <div class="rt-input-row">
+          <input type="text" id="rtReturn" placeholder="Return address">
+          <button class="icon-btn pin-btn" id="rtReturnPin" onclick="openMapForRt('return')">&#x1F4CD;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Generate -->
+  <div class="section hidden" id="routeSection">
+    <div class="label">City</div>
+    <input type="text" id="cityInput" placeholder="Montreal, QC" value="Montreal, QC">
+    <button class="btn btn-primary" id="routeBtn" onclick="generateRoute()">Generate Route</button>
+    <div class="status" id="routeStatus"></div>
+    <div class="error hidden" id="routeError"></div>
+  </div>
+
+  <!-- Step 4: Download -->
+  <div class="section hidden" id="downloadSection">
+    <button class="btn btn-success" onclick="triggerDownload()">Download GPX</button>
+    <p class="note">Open in Hammerhead app &rarr; send to Karoo</p>
+  </div>
+
+  <!-- Map modal -->
+  <div id="mapModal" class="hidden">
+    <div id="mapContainer"></div>
+    <div class="map-bar">
+      <span id="mapCoords">Tap map to place pin</span>
+      <button id="mapCancel" onclick="closeMap()">Cancel</button>
+      <button id="mapConfirm" onclick="confirmPin()">Confirm</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Fix Leaflet's broken default icon paths when loaded from CDN
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    });
+
+    const MONTREAL = [45.5017, -73.5673];
+    let gpxBlob = null;
+
+    // map state
+    let mapInstance = null;
+    let mapMarker   = null;
+    let pendingCoords = null;
+    let mapTarget   = null; // { type: 'checkpoint', wrapper } | { type: 'rt', key: 'pickup'|'dropoff'|'return' }
+
+    // per-rt-field stored coords
+    const rtCoords = { pickup: null, dropoff: null, return: null };
+
+    // ---- Photo ----
+    document.getElementById('photoInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      setStatus('scanStatus', 'Scanning manifest...', true);
+      hide('scanError');
+      hide('addressSection');
+      hide('roundTripSection');
+      hide('routeSection');
+      hide('downloadSection');
+
+      const form = new FormData();
+      form.append('image', file);
+
+      try {
+        const res = await fetch('/extract', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Extraction failed');
+
+        renderManifest(data);
+        const total = (data.checkpoints || []).length + (data.round_trip ? 3 : 0);
+        setStatus('scanStatus', `Found ${total} stops`);
+        show('addressSection');
+        if (data.round_trip) show('roundTripSection');
+        show('routeSection');
+      } catch (err) {
+        setStatus('scanStatus', '');
+        showError('scanError', err.message);
+      }
+      e.target.value = '';
+    });
+
+    // ---- Render ----
+    // Sequential geocode queue — one request at a time to respect Nominatim rate limit
+    const geocodeQueue = [];
+    let geocodeRunning = false;
+
+    function enqueueGeocode(address, city, wrapper, coordsEl) {
+      geocodeQueue.push({ address, city, wrapper, coordsEl });
+      if (!geocodeRunning) drainGeocodeQueue();
+    }
+
+    async function drainGeocodeQueue() {
+      geocodeRunning = true;
+      while (geocodeQueue.length > 0) {
+        const { address, city, wrapper, coordsEl } = geocodeQueue.shift();
+        await geocodeAndStore(address, city, wrapper, coordsEl);
+      }
+      geocodeRunning = false;
+    }
+
+    function renderManifest(data) {
+      const city = document.getElementById('cityInput').value.trim();
+      const list = document.getElementById('addressList');
+      list.innerHTML = '';
+      geocodeQueue.length = 0; // clear any stale queue from previous scan
+
+      (data.checkpoints || []).forEach(addr => {
+        const { wrapper, coordsEl } = addCheckpointRow(addr);
+        enqueueGeocode(addr, city, wrapper, isLandmark(addr) ? coordsEl : null);
+      });
+
+      if (data.round_trip) {
+        document.getElementById('rtPickup').value  = data.round_trip.pickup    || '';
+        document.getElementById('rtDropoff').value = data.round_trip.dropoff   || '';
+        document.getElementById('rtReturn').value  = data.round_trip.return_to || '';
+        rtCoords.pickup  = null;
+        rtCoords.dropoff = null;
+        rtCoords.return  = null;
+      }
+    }
+
+    function isLandmark(addr) { return !/^\d/.test(addr.trim()); }
+
+    function addCheckpointRow(value) {
+      const list = document.getElementById('addressList');
+      const wrapper = document.createElement('div');
+      wrapper.dataset.lat = '';
+      wrapper.dataset.lng = '';
+
+      const row = document.createElement('div');
+      row.className = 'addr-row';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = value;
+      input.placeholder = 'Street address';
+
+      const pinBtn = document.createElement('button');
+      pinBtn.className = 'icon-btn pin-btn';
+      pinBtn.innerHTML = '&#x1F4CD;';
+      pinBtn.title = 'Set location on map';
+      pinBtn.onclick = () => openMapForCheckpoint(wrapper);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'icon-btn del-btn';
+      delBtn.textContent = '×';
+      delBtn.onclick = () => wrapper.remove();
+
+      const coordsEl = document.createElement('div');
+      coordsEl.className = 'coords-line';
+
+      row.appendChild(input);
+      row.appendChild(pinBtn);
+      row.appendChild(delBtn);
+      wrapper.appendChild(row);
+      wrapper.appendChild(coordsEl);
+      list.appendChild(wrapper);
+      return { wrapper, coordsEl, pinBtn };
+    }
+
+    async function geocodeAndStore(address, city, wrapper, coordsEl = null) {
+      if (coordsEl) { coordsEl.className = 'coords-line loading'; coordsEl.textContent = 'locating...'; }
+      const pinBtn = wrapper.querySelector('.pin-btn');
+
+      try {
+        const res  = await fetch('/geocode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address, city }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setWrapperCoords(wrapper, data.lat, data.lng);
+          if (coordsEl) {
+            coordsEl.className = 'coords-line found';
+            coordsEl.textContent = `${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`;
+          }
+          if (pinBtn) { pinBtn.classList.remove('failed'); pinBtn.classList.add('located'); }
+        } else {
+          if (coordsEl) { coordsEl.className = 'coords-line not-found'; coordsEl.textContent = 'tap pin to set location'; }
+          if (pinBtn) pinBtn.classList.add('failed');
+        }
+      } catch {
+        if (coordsEl) { coordsEl.className = 'coords-line not-found'; coordsEl.textContent = 'tap pin to set location'; }
+        if (pinBtn) pinBtn.classList.add('failed');
+      }
+    }
+
+    function setWrapperCoords(wrapper, lat, lng) {
+      wrapper.dataset.lat = lat;
+      wrapper.dataset.lng = lng;
+    }
+
+    // ---- Map ----
+    function openMapForCheckpoint(wrapper) {
+      mapTarget = { type: 'checkpoint', wrapper };
+      const lat = parseFloat(wrapper.dataset.lat) || null;
+      const lng = parseFloat(wrapper.dataset.lng) || null;
+      openMap(lat, lng);
+    }
+
+    function openMapForRt(key) {
+      mapTarget = { type: 'rt', key };
+      const c = rtCoords[key];
+      openMap(c ? c.lat : null, c ? c.lng : null);
+    }
+
+    function openMap(initLat, initLng) {
+      show('mapModal');
+      pendingCoords = null;
+
+      requestAnimationFrame(() => {
+        if (mapInstance) { mapInstance.remove(); mapInstance = null; mapMarker = null; }
+
+        const hasCoords = initLat !== null && initLng !== null;
+        const center = hasCoords ? [initLat, initLng] : MONTREAL;
+        const zoom   = hasCoords ? 17 : 13;
+
+        mapInstance = L.map('mapContainer').setView(center, zoom);
+        L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=__MAPBOX_TOKEN__', {
+          attribution: '&copy; Mapbox &copy; OpenStreetMap contributors',
+          tileSize: 512,
+          zoomOffset: -1,
+          maxZoom: 20,
+        }).addTo(mapInstance);
+
+        if (hasCoords) {
+          pendingCoords = { lat: initLat, lng: initLng };
+          mapMarker = L.marker(center, { draggable: true }).addTo(mapInstance);
+          mapMarker.on('drag dragend', updateMapCoords);
+        }
+
+        mapInstance.on('click', (e) => {
+          pendingCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
+          if (mapMarker) {
+            mapMarker.setLatLng(e.latlng);
+          } else {
+            mapMarker = L.marker(e.latlng, { draggable: true }).addTo(mapInstance);
+            mapMarker.on('drag dragend', updateMapCoords);
+          }
+          updateMapCoords();
+        });
+
+        updateMapCoords();
+      });
+    }
+
+    function updateMapCoords() {
+      const el = document.getElementById('mapCoords');
+      if (mapMarker) {
+        const p = mapMarker.getLatLng();
+        pendingCoords = { lat: p.lat, lng: p.lng };
+        el.textContent = `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+      } else {
+        el.textContent = 'Tap map to place pin';
+      }
+    }
+
+    function confirmPin() {
+      if (!pendingCoords) { closeMap(); return; }
+
+      if (mapTarget.type === 'checkpoint') {
+        const { wrapper } = mapTarget;
+        setWrapperCoords(wrapper, pendingCoords.lat, pendingCoords.lng);
+        const coordsEl = wrapper.querySelector('.coords-line');
+        const pinBtn   = wrapper.querySelector('.pin-btn');
+        if (coordsEl) {
+          coordsEl.className = 'coords-line found';
+          coordsEl.textContent = `${pendingCoords.lat.toFixed(5)}, ${pendingCoords.lng.toFixed(5)}`;
+        }
+        if (pinBtn) { pinBtn.classList.remove('failed'); pinBtn.classList.add('located'); }
+      } else {
+        const key = mapTarget.key;
+        rtCoords[key] = { ...pendingCoords };
+        const pinBtn = document.getElementById(`rt${cap(key)}Pin`);
+        if (pinBtn) { pinBtn.classList.remove('failed'); pinBtn.classList.add('located'); }
+      }
+
+      closeMap();
+    }
+
+    function closeMap() {
+      hide('mapModal');
+      if (mapInstance) { mapInstance.remove(); mapInstance = null; mapMarker = null; }
+    }
+
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    // ---- Collect data ----
+    function getCheckpoints() {
+      return Array.from(document.querySelectorAll('#addressList > div')).map(wrapper => {
+        const address = wrapper.querySelector('input').value.trim();
+        if (!address) return null;
+        const stop = { address };
+        const lat = parseFloat(wrapper.dataset.lat);
+        const lng = parseFloat(wrapper.dataset.lng);
+        if (!isNaN(lat) && !isNaN(lng)) { stop.lat = lat; stop.lng = lng; }
+        return stop;
+      }).filter(Boolean);
+    }
+
+    function getRoundTrip() {
+      const pickup  = document.getElementById('rtPickup').value.trim();
+      const dropoff = document.getElementById('rtDropoff').value.trim();
+      const ret     = document.getElementById('rtReturn').value.trim();
+      if (!pickup && !dropoff && !ret) return null;
+      const rt = {
+        pickup:    { address: pickup,  ...rtCoords.pickup  || {} },
+        dropoff:   { address: dropoff, ...rtCoords.dropoff || {} },
+        return_to: { address: ret,     ...rtCoords.return  || {} },
+      };
+      return rt;
+    }
+
+    // ---- Generate ----
+    async function generateRoute() {
+      const checkpoints = getCheckpoints();
+      const round_trip  = getRoundTrip();
+      if (!checkpoints.length && !round_trip) {
+        showError('routeError', 'No addresses entered.'); return;
+      }
+
+      const btn = document.getElementById('routeBtn');
+      btn.disabled = true;
+      hide('routeError');
+      hide('downloadSection');
+      gpxBlob = null;
+
+      const city = document.getElementById('cityInput').value.trim();
+      let startLat = null, startLng = null;
+      try {
+        const pos = await new Promise((ok, fail) =>
+          navigator.geolocation.getCurrentPosition(ok, fail, { timeout: 5000, maximumAge: 60000 })
+        );
+        startLat = pos.coords.latitude;
+        startLng = pos.coords.longitude;
+      } catch {}
+
+      setStatus('routeStatus', 'Optimizing route...', true);
+
+      const body = { checkpoints, city };
+      if (round_trip) body.round_trip = round_trip;
+      if (startLat !== null) { body.start_lat = startLat; body.start_lng = startLng; }
+
+      try {
+        const res = await fetch('/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.detail || 'Route generation failed');
+        }
+        gpxBlob = await res.blob();
+        setStatus('routeStatus', 'Route ready');
+        show('downloadSection');
+        triggerDownload();
+      } catch (err) {
+        setStatus('routeStatus', '');
+        showError('routeError', err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function triggerDownload() {
+      if (!gpxBlob) return;
+      const url = URL.createObjectURL(gpxBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'alleycat_route.gpx';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ---- Helpers ----
+    function setStatus(id, msg, loading = false) {
+      const el = document.getElementById(id);
+      el.innerHTML = !msg ? '' : loading ? `<span class="spinner"></span>${msg}` : msg;
+    }
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg; el.classList.remove('hidden');
+    }
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+  </script>
+</body>
+</html>

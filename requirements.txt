@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+anthropic
+httpx
+gpxpy
+python-multipart
+python-dotenv
